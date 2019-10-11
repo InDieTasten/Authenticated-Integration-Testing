@@ -1,0 +1,9 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Secure Page</h1>
+    <div class="secret">THIS-IS-MY-SECRET-ONLY-VISIBLE-TO-LOGGED-IN-USERS</div>
+    <div class="user-id">@User.Identity.Name</div>
+</div>

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Xunit;
@@ -31,6 +32,25 @@ namespace MyApplication.IntegrationTests
             response.EnsureSuccessStatusCode(); // Status Code 200-299
             Assert.Equal("text/html; charset=utf-8",
                 response.Content.Headers.ContentType.ToString());
+        }
+
+        [Fact]
+        public async Task Get_SecurePageRequiresAnAuthenticatedUser()
+        {
+            // Arrange
+            HttpClient client = _factory.CreateClient(
+                new WebApplicationFactoryClientOptions
+                {
+                    AllowAutoRedirect = false
+                });
+
+            // Act
+            HttpResponseMessage response = await client.GetAsync("/Home/Secure");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.StartsWith("http://localhost/Identity/Account/Login",
+                response.Headers.Location.OriginalString);
         }
     }
 }
