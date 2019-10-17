@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using MyApplication.Data;
 using MyApplication.Models;
 
 namespace MyApplication.Controllers
@@ -13,10 +14,12 @@ namespace MyApplication.Controllers
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
+        private readonly ApplicationDbContext _dbContext;
 
-        public HomeController(ILogger<HomeController> logger)
+        public HomeController(ILogger<HomeController> logger, ApplicationDbContext dbContext)
         {
             _logger = logger;
+            _dbContext = dbContext;
         }
 
         public IActionResult Index()
@@ -32,6 +35,7 @@ namespace MyApplication.Controllers
         [Authorize]
         public IActionResult Secure()
         {
+
             return View();
         }
 

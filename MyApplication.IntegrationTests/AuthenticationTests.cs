@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using AngleSharp.Html.Dom;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -6,10 +7,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MyApplication.Data;
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Xunit;
+using MyApplication.IntegrationTests.Helpers;
+using System.Linq;
+using RazorPagesProject.Tests;
 
 namespace MyApplication.IntegrationTests
 {
@@ -17,91 +22,46 @@ namespace MyApplication.IntegrationTests
     : IClassFixture<CustomWebApplicationFactory<Startup>>
     {
         private readonly CustomWebApplicationFactory<Startup> _factory;
+        private readonly HttpClient _client;
 
         public AuthenticationTests(CustomWebApplicationFactory<Startup> factory)
         {
             _factory = factory;
+            _client = _factory.CreateClient(
+                new WebApplicationFactoryClientOptions
+                {
+                    AllowAutoRedirect = false
+                });
         }
 
         [Fact]
         public async Task Get_SecurePageRequiresAnAuthenticatedUser()
         {
-            // Arrange
-            HttpClient client = _factory.CreateClient(
-                new WebApplicationFactoryClientOptions
-                {
-                    AllowAutoRedirect = false
-                });
-
             // Act
-            HttpResponseMessage response = await client.GetAsync("/Home/Secure");
+            HttpResponseMessage response = await _client.GetAsync("/Home/Secure");
 
             // Assert
             Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
             Assert.StartsWith("http://localhost/Identity/Account/Login",
                 response.Headers.Location.OriginalString);
         }
-    }
 
-    public class CustomWebApplicationFactory<TStartup>
-    : WebApplicationFactory<TStartup> where TStartup : class
-    {
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        [Theory]
+        [InlineData("alice@example.org", "#SecurePassword123")]
+        public async Task Get_SecurePageWorksForAlice(string email, string password)
         {
-            builder.ConfigureServices(services =>
-            {
-                // Create a new service provider.
-                var serviceProvider = new ServiceCollection()
-                    .AddEntityFrameworkInMemoryDatabase()
-                    .BuildServiceProvider();
+            // Arrange
+            var client = await _factory.CreateAuthenticatedClientAsync(email, password);
 
-                // Add a database context (ApplicationDbContext) using an in-memory 
-                // database for testing.
-                services.AddDbContext<ApplicationDbContext>((options, context) =>
-                {
-                    context.UseInMemoryDatabase("InMemoryDbForTesting")
-                        .UseInternalServiceProvider(serviceProvider);
-                });
+            // Act
+            HttpResponseMessage response = await client.GetAsync("/Home/Secure");
 
-                // Build the service provider.
-                var sp = services.BuildServiceProvider();
-
-                // Create a scope to obtain a reference to the database
-                // context (ApplicationDbContext).
-                using (var scope = sp.CreateScope())
-                {
-                    var scopedServices = scope.ServiceProvider;
-                    var db = scopedServices.GetRequiredService<ApplicationDbContext>();
-                    var userManager = scopedServices.GetRequiredService<UserManager<IdentityUser>>();
-                    var logger = scopedServices
-                        .GetRequiredService<ILogger<CustomWebApplicationFactory<TStartup>>>();
-
-                    // Ensure the database is created.
-                    db.Database.EnsureCreated();
-
-                    try
-                    {
-                        // Seed the database with test data.
-                        InitializeUserStore(userManager).Wait();
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "An error occurred seeding the " +
-                            "database with test messages. Error: {Message}", ex.Message);
-                    }
-                }
-            });
-        }
-
-        private async Task InitializeUserStore(UserManager<IdentityUser> userManager)
-        {
-            var alice = new IdentityUser
-            {
-                Email = "alice@example.org"
-            };
-            await userManager.CreateAsync(alice, "#SecurePassword123");
-            var confirmationToken = await userManager.GenerateEmailConfirmationTokenAsync(alice);
-            await userManager.ConfirmEmailAsync(alice, confirmationToken);
+            // Assert
+            var document = await HtmlHelpers.GetDocumentAsync(response);
+            Assert.Equal("THIS-IS-MY-SECRET-ONLY-VISIBLE-TO-LOGGED-IN-USERS",
+                document.QuerySelector("div[class='secret']")?.TextContent);
+            Assert.Equal(email,
+                document.QuerySelector("div[class='user-id']")?.TextContent);
         }
     }
 }
