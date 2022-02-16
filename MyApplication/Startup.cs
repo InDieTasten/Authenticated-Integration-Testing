@@ -27,6 +27,7 @@ namespace MyApplication
             //        Configuration.GetConnectionString("DefaultConnection")));
             services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
                 .AddEntityFrameworkStores<ApplicationDbContext>();
+            services.AddDatabaseDeveloperPageExceptionFilter();
             services.AddControllersWithViews();
             services.AddRazorPages();
         }
@@ -37,7 +38,7 @@ namespace MyApplication
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
-                app.UseDatabaseErrorPage();
+                app.UseMigrationsEndPoint();
             }
             else
             {
